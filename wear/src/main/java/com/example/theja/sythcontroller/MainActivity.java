@@ -1,14 +1,13 @@
 package com.example.theja.sythcontroller;
 
-import android.annotation.SuppressLint;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.support.wearable.activity.WearableActivity;
+import android.view.View;
 import android.widget.TextView;
-
 import java.util.Locale;
 
 public class MainActivity extends WearableActivity {
@@ -19,6 +18,7 @@ public class MainActivity extends WearableActivity {
     private TextView mTextView4;
     private TextView mTextView5;
     private TextView mTextView6;
+    private TextView t3;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,14 +26,14 @@ public class MainActivity extends WearableActivity {
         setContentView(R.layout.activity_main);
 
         // Gyro values
-        mTextView1 = (TextView) findViewById(R.id.textView1);
-        mTextView2 = (TextView) findViewById(R.id.textView2);
-        mTextView3 = (TextView) findViewById(R.id.textView3);
+        mTextView1 = findViewById(R.id.textView1);
+        mTextView2 = findViewById(R.id.textView2);
+        mTextView3 = findViewById(R.id.textView3);
 
         // Rotvec values
-        mTextView4 = (TextView) findViewById(R.id.textView4);
-        mTextView5 = (TextView) findViewById(R.id.textView5);
-        mTextView6 = (TextView) findViewById(R.id.textView6);
+        mTextView4 = findViewById(R.id.textView4);
+        mTextView5 = findViewById(R.id.textView5);
+        mTextView6 = findViewById(R.id.textView6);
 
         SensorManager sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
 
@@ -91,4 +91,8 @@ public class MainActivity extends WearableActivity {
         // Enables Always-on
         setAmbientEnabled();
     }
+
+     public void onButtonClicked(View target) {
+        t3.setText("Button clicked");
+     }
 }
