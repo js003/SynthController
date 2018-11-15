@@ -92,6 +92,12 @@
                 android:onClick="onButtonClicked"
                 android:text="Button" />
 
+            <TextView
+                android:id="@+id/t4"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="TextView" />
+
         </LinearLayout>
     </ScrollView>
 

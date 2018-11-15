@@ -1,14 +1,28 @@
 package com.example.theja.sythcontroller;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.wearable.activity.WearableActivity;
 import android.view.View;
 import android.widget.TextView;
+
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
+import com.google.android.gms.wearable.Node;
+import com.google.android.gms.wearable.Wearable;
+import com.google.android.gms.wearable.WearableListenerService;
+
+import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
 
 public class MainActivity extends WearableActivity {
 
@@ -19,6 +33,9 @@ public class MainActivity extends WearableActivity {
     private TextView mTextView5;
     private TextView mTextView6;
     private TextView t3;
+    private TextView t4;
+    private int sendMessages = 0;
+    private int receivedMessages = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -90,9 +107,59 @@ public class MainActivity extends WearableActivity {
 
         // Enables Always-on
         setAmbientEnabled();
+
+        // Send Message Stuff
+        t3 = findViewById(R.id.t3);
+        t4 = findViewById(R.id.t4);
+
+        IntentFilter newFilter = new IntentFilter(Intent.ACTION_SEND);
+        Receiver messageReceiver = new Receiver();
+        LocalBroadcastManager.getInstance(this).registerReceiver(messageReceiver, newFilter);
     }
 
      public void onButtonClicked(View target) {
-        t3.setText("Button clicked");
+        String onClickMessage = "Wearable send message " + ++sendMessages;
+        t3.setText(onClickMessage);
+        String datapath = "/my_path";
+        new SendMessage(datapath, onClickMessage).start();
+     }
+
+     class SendMessage extends Thread {
+        String path;
+        String message;
+
+        SendMessage(String p, String m) {
+            path = p;
+            message = m;
+        }
+
+        public void run() {
+            Task<List<Node>> nodeListTask = Wearable.getNodeClient(getApplicationContext()).getConnectedNodes();
+            try {
+                List<Node> nodes = Tasks.await(nodeListTask);
+                for (Node node : nodes) {
+                    Task<Integer> sendMessageTask = Wearable.getMessageClient(MainActivity.this).sendMessage(node.getId(), path, message.getBytes());
+                    try {
+                        Integer result = Tasks.await(sendMessageTask);
+                    } catch (ExecutionException e) {
+
+                    } catch (InterruptedException e) {
+
+                    }
+                }
+            } catch (ExecutionException e) {
+
+            } catch (InterruptedException e) {
+
+            }
+        }
+     }
+
+     public class Receiver extends BroadcastReceiver {
+        @Override
+         public void onReceive(Context context, Intent intent) {
+            String onMessageReceived = "Received " + ++receivedMessages + " messages";
+            t4.setText(onMessageReceived);
+        }
      }
 }
