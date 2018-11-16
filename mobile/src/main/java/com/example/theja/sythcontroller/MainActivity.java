@@ -28,7 +28,6 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView mTextView1;
     private TextView mTextView2;
-    protected Handler myHandler;
     private int receivedMessages = 0;
     private int sendMessages = 0;
 
@@ -40,36 +39,15 @@ public class MainActivity extends AppCompatActivity {
         mTextView1 = findViewById(R.id.textView1);
         mTextView2 = findViewById(R.id.textView2);
 
-        mTextView1.setText("°(^.^)°");
-        mTextView2.setText("Test ");
-
-        // Message Handler
-        /*myHandler = new Handler(new Handler.Callback() {
-            @Override
-            public boolean handleMessage(Message msg) {
-                //Bundle stuff = msg.getData();
-                //mTextView2.setText(stuff.getString("messageText"));
-                return true;
-            }
-        });*/
-
         IntentFilter messageFilter = new IntentFilter(Intent.ACTION_SEND);
         Receiver messageReceiver = new Receiver();
         LocalBroadcastManager.getInstance(this).registerReceiver(messageReceiver, messageFilter);
     }
 
     public void onButtonClicked(View target) {
-        String message = "Phone send message " + ++sendMessages;
+        String message = "Sended " + ++sendMessages + " messages";
         mTextView1.setText(message);
         new NewThread("/my_path", message).start();
-    }
-
-    public void sendMessage(String messageText) {
-        //Bundle bundle = new Bundle();
-        //bundle.putString("messageText", messageText);
-        //Message msg = myHandler.obtainMessage();
-        //msg.setData(bundle);
-        //myHandler.sendMessage(msg);
     }
 
     class NewThread extends Thread {
@@ -91,7 +69,6 @@ public class MainActivity extends AppCompatActivity {
                     // Send Message
                     try {
                         Integer result = Tasks.await(sendMessageTask);
-                        //sendMessage("Message " + sendMessages);
                     } catch (ExecutionException e) {
 
                     } catch (InterruptedException e) {
@@ -109,7 +86,7 @@ public class MainActivity extends AppCompatActivity {
     public class Receiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-            String message = "Received: " + ++receivedMessages + " messages";
+            String message = "Received " + ++receivedMessages + " messages";
             mTextView2.setText(message);
         }
     }
