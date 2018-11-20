@@ -55,10 +55,10 @@ public class MainActivity extends WearableActivity implements WearableNavigation
     private TextView mY;
     private TextView mZ;
 
-    private final float[] mAccelerometerReading = new float[3];
-    private final float[] mMagnetometerReading = new float[3];
-    private final float[] mRotationMatrix = new float[9];
-    private final float[] mOrientationAngles = new float[3];
+    private float[] mAccelerometerReading = new float[3];
+    private float[] mMagnetometerReading = new float[3];
+    private float[] mRotationMatrix = new float[9];
+    private float[] mOrientationAngles = new float[3];
 
     private TextView mTextView13;
     private TextView mTextView14;
@@ -67,6 +67,13 @@ public class MainActivity extends WearableActivity implements WearableNavigation
     private TextView mTextView17;
     private TextView mTextView18;
 
+    // Low pass filter
+    static final float ALPHA = 0.1f;
+
+    SensorEventListener accelerometerListener;
+    SensorEventListener magneticFieldListener;
+    SensorEventListener gyroListener;
+    SensorEventListener rotvecListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -83,9 +90,7 @@ public class MainActivity extends WearableActivity implements WearableNavigation
         mTextView5 = findViewById(R.id.textView5);
         mTextView6 = findViewById(R.id.textView6);
 
-        SensorManager sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-
-        // Test Accelerometer and MagneticField Sensor
+        // Accelerometer and MagneticField Sensor
         mTextView13 = findViewById(R.id.textView13);
         mTextView14 = findViewById(R.id.textView14);
         mTextView15 = findViewById(R.id.textView15);
@@ -94,39 +99,69 @@ public class MainActivity extends WearableActivity implements WearableNavigation
         mTextView18 = findViewById(R.id.textView18);
         mMatrixLayout = findViewById(R.id.matrixLayout);
 
-        Sensor accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        SensorEventListener accelerometerListener = new SensorEventListener() {
+        // Rotation vector
+        mX = findViewById(R.id.init_x);
+        mY = findViewById(R.id.init_y);
+        mZ = findViewById(R.id.init_z);
+
+        initEventListeners();
+        onItemSelected(0);
+
+        // Enables Always-on
+        setAmbientEnabled();
+
+        // Send Message Stuff
+        t3 = findViewById(R.id.t3);
+        t4 = findViewById(R.id.t4);
+
+        IntentFilter newFilter = new IntentFilter(Intent.ACTION_SEND);
+        Receiver messageReceiver = new Receiver();
+        LocalBroadcastManager.getInstance(this).registerReceiver(messageReceiver, newFilter);
+
+        // Top navigation drawer
+        menuList = new ArrayList<>();
+
+        mVectorLayout = findViewById(R.id.vectorLayout);
+        mMessageLayout = findViewById(R.id.messageLayout);
+        mGyroscopeLayout = findViewById(R.id.gyroLayout);
+
+        menuList.add(new Menu("Acceleration / magnetic field", android.R.drawable.ic_menu_mapmode));
+        menuList.add(new Menu("Rotation vector", android.R.drawable.ic_menu_rotate));
+        menuList.add(new Menu("Messages", android.R.drawable.ic_dialog_email));
+        menuList.add(new Menu("Gyroscope", android.R.drawable.ic_menu_compass));
+
+        mNavigationDrawer = findViewById(R.id.top_navigation_drawer);
+        mNavigationDrawer.setAdapter(new NavigationAdapter(this));
+        mNavigationDrawer.getController().peekDrawer();
+        mNavigationDrawer.addOnItemSelectedListener(this);
+    }
+
+    public void initEventListeners() {
+        accelerometerListener = new SensorEventListener() {
             @Override
             public void onSensorChanged(SensorEvent event) {
-                System.arraycopy(event.values, 0, mAccelerometerReading,0, mAccelerometerReading.length);
+                //System.arraycopy(event.values, 0, mAccelerometerReading,0, mAccelerometerReading.length);
+                mAccelerometerReading = lowPass(event.values.clone(), mAccelerometerReading);
                 updateOrientationAngles();
             }
 
             @Override
-            public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
-            }
+            public void onAccuracyChanged(Sensor sensor, int accuracy) { }
         };
-        sensorManager.registerListener(accelerometerListener, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
 
-        Sensor magneticField = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-        SensorEventListener magneticFieldListener = new SensorEventListener() {
+        magneticFieldListener = new SensorEventListener() {
             @Override
             public void onSensorChanged(SensorEvent event) {
-                System.arraycopy(event.values, 0, mMagnetometerReading,0, mMagnetometerReading.length);
+                //System.arraycopy(event.values, 0, mMagnetometerReading,0, mMagnetometerReading.length);
+                mMagnetometerReading = lowPass(event.values.clone(), mMagnetometerReading);
                 updateOrientationAngles();
             }
 
             @Override
-            public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
-            }
+            public void onAccuracyChanged(Sensor sensor, int accuracy) { }
         };
-        sensorManager.registerListener(magneticFieldListener, magneticField, SensorManager.SENSOR_DELAY_NORMAL);
 
-        // Gyroscope
-        Sensor gyro = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
-        SensorEventListener gyroListener = new SensorEventListener() {
+        gyroListener = new SensorEventListener() {
             @Override
             public void onSensorChanged(SensorEvent event) {
                 mTextView1.setText(String.format("X: %s", String.format(Locale.getDefault(), "%.2f", event.values[0])));
@@ -135,18 +170,10 @@ public class MainActivity extends WearableActivity implements WearableNavigation
             }
 
             @Override
-            public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
-            }
+            public void onAccuracyChanged(Sensor sensor, int accuracy) { }
         };
-        sensorManager.registerListener(gyroListener, gyro, SensorManager.SENSOR_DELAY_NORMAL);
 
-        // Rotation vector
-        mX = findViewById(R.id.init_x);
-        mY = findViewById(R.id.init_y);
-        mZ = findViewById(R.id.init_z);
-        Sensor rotvec = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
-        SensorEventListener rotvecListener = new SensorEventListener() {
+        rotvecListener = new SensorEventListener() {
             @Override
             public void onSensorChanged(SensorEvent event) {
                 float[] rotationMatrix = new float[16];
@@ -176,39 +203,8 @@ public class MainActivity extends WearableActivity implements WearableNavigation
             }
 
             @Override
-            public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
-            }
+            public void onAccuracyChanged(Sensor sensor, int accuracy) { }
         };
-        sensorManager.registerListener(rotvecListener, rotvec, SensorManager.SENSOR_DELAY_NORMAL);
-
-        // Enables Always-on
-        setAmbientEnabled();
-
-        // Send Message Stuff
-        t3 = findViewById(R.id.t3);
-        t4 = findViewById(R.id.t4);
-
-        IntentFilter newFilter = new IntentFilter(Intent.ACTION_SEND);
-        Receiver messageReceiver = new Receiver();
-        LocalBroadcastManager.getInstance(this).registerReceiver(messageReceiver, newFilter);
-
-        // Top navigation drawer
-        menuList = new ArrayList<Menu>();
-
-        mVectorLayout = findViewById(R.id.vectorLayout);
-        mMessageLayout = findViewById(R.id.messageLayout);
-        mGyroscopeLayout = findViewById(R.id.gyroLayout);
-
-        menuList.add(new Menu("Acceleration / magnetic field", android.R.drawable.ic_menu_mapmode));
-        menuList.add(new Menu("Rotation vector", android.R.drawable.ic_menu_rotate));
-        menuList.add(new Menu("Messages", android.R.drawable.ic_dialog_email));
-        menuList.add(new Menu("Gyroscope", android.R.drawable.ic_menu_compass));
-
-        mNavigationDrawer = findViewById(R.id.top_navigation_drawer);
-        mNavigationDrawer.setAdapter(new NavigationAdapter(this));
-        mNavigationDrawer.getController().peekDrawer();
-        mNavigationDrawer.addOnItemSelectedListener(this);
     }
 
     // Compute the three orientation angles based on the most recent readings from
@@ -216,11 +212,9 @@ public class MainActivity extends WearableActivity implements WearableNavigation
     public void updateOrientationAngles() {
         // Update rotation matrix, which is needed to update orientation angles.
         SensorManager.getRotationMatrix(mRotationMatrix, null, mAccelerometerReading, mMagnetometerReading);
-
         // "mRotationMatrix" now has up-to-date information.
 
         SensorManager.getOrientation(mRotationMatrix, mOrientationAngles);
-
         // "mOrientationAngles" now has up-to-date information.
 
         mTextView13.setText(String.format("X: %s", String.format(Locale.getDefault(), "%.2f", mRotationMatrix[0])));
@@ -229,7 +223,15 @@ public class MainActivity extends WearableActivity implements WearableNavigation
         mTextView16.setText(String.format("X: %s", String.format(Locale.getDefault(), "%.2f", mOrientationAngles[0])));
         mTextView17.setText(String.format("Y: %s", String.format(Locale.getDefault(), "%.2f", mOrientationAngles[1])));
         mTextView18.setText(String.format("Z: %s", String.format(Locale.getDefault(), "%.2f", mOrientationAngles[2])));
+    }
 
+    // Low pass filter method.
+    protected float[] lowPass(float[] input, float[] output) {
+        if (output == null) return input;
+        for (int i = 0; i < input.length; i++) {
+            output[i] = output[i] + ALPHA * (input[i] - output[i]);
+        }
+        return output;
     }
 
      public void onButtonClicked(View target) {
@@ -251,27 +253,67 @@ public class MainActivity extends WearableActivity implements WearableNavigation
 
     @Override
     public void onItemSelected(int i) {
+        SensorManager sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         if (i == 0) {
+            // Accelerometer and Magnetic field
             mMatrixLayout.setVisibility(View.VISIBLE);
             mVectorLayout.setVisibility(View.INVISIBLE);
             mMessageLayout.setVisibility(View.INVISIBLE);
             mGyroscopeLayout.setVisibility(View.INVISIBLE);
 
+            // Unregister listeners
+            sensorManager.unregisterListener(rotvecListener);
+            sensorManager.unregisterListener(gyroListener);
+
+            // Accelerometer
+            Sensor accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+            sensorManager.registerListener(accelerometerListener, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+
+            // Magnetic field
+            Sensor magneticField = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+            sensorManager.registerListener(magneticFieldListener, magneticField, SensorManager.SENSOR_DELAY_NORMAL);
         } else if (i == 1) {
+            // Rotation vector
             mMatrixLayout.setVisibility(View.INVISIBLE);
             mVectorLayout.setVisibility(View.VISIBLE);
             mMessageLayout.setVisibility(View.INVISIBLE);
             mGyroscopeLayout.setVisibility(View.INVISIBLE);
+
+            // Unregister listeners
+            sensorManager.unregisterListener(accelerometerListener);
+            sensorManager.unregisterListener(magneticFieldListener);
+            sensorManager.unregisterListener(gyroListener);
+
+            // Rotation vector
+            Sensor rotvec = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+            sensorManager.registerListener(rotvecListener, rotvec, SensorManager.SENSOR_DELAY_NORMAL);
         } else if (i == 2) {
+            // Message
             mMatrixLayout.setVisibility(View.INVISIBLE);
             mVectorLayout.setVisibility(View.INVISIBLE);
             mMessageLayout.setVisibility(View.VISIBLE);
             mGyroscopeLayout.setVisibility(View.INVISIBLE);
+
+            // Unregister listeners
+            sensorManager.unregisterListener(accelerometerListener);
+            sensorManager.unregisterListener(magneticFieldListener);
+            sensorManager.unregisterListener(rotvecListener);
+            sensorManager.unregisterListener(gyroListener);
         } else if (i == 3) {
+            // Gyroscope
             mMatrixLayout.setVisibility(View.INVISIBLE);
             mVectorLayout.setVisibility(View.INVISIBLE);
             mMessageLayout.setVisibility(View.INVISIBLE);
             mGyroscopeLayout.setVisibility(View.VISIBLE);
+
+            // Unregister listeners
+            sensorManager.unregisterListener(accelerometerListener);
+            sensorManager.unregisterListener(magneticFieldListener);
+            sensorManager.unregisterListener(rotvecListener);
+
+            // Gyroscope
+            Sensor gyro = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+            sensorManager.registerListener(gyroListener, gyro, SensorManager.SENSOR_DELAY_NORMAL);
         }
     }
 
@@ -318,7 +360,7 @@ public class MainActivity extends WearableActivity implements WearableNavigation
 
         private final Context mContext;
 
-        public NavigationAdapter(Context context) {
+        private NavigationAdapter(Context context) {
             mContext = context;
         }
 
