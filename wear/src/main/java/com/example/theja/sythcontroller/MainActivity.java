@@ -9,7 +9,9 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.provider.ContactsContract;
 import android.support.constraint.ConstraintLayout;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.wear.widget.drawer.WearableNavigationDrawerView;
@@ -20,6 +22,11 @@ import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.Wearable;
+
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -66,6 +73,7 @@ public class MainActivity extends WearableActivity implements WearableNavigation
     private TextView mTextView16;
     private TextView mTextView17;
     private TextView mTextView18;
+    private TextView mTextViewValue;
 
     // Low pass filter
     static final float ALPHA = 0.1f;
@@ -74,6 +82,9 @@ public class MainActivity extends WearableActivity implements WearableNavigation
     SensorEventListener magneticFieldListener;
     SensorEventListener gyroListener;
     SensorEventListener rotvecListener;
+    String oldval = "";
+
+    Integer globalCounter = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -97,6 +108,7 @@ public class MainActivity extends WearableActivity implements WearableNavigation
         mTextView16 = findViewById(R.id.textView16);
         mTextView17 = findViewById(R.id.textView17);
         mTextView18 = findViewById(R.id.textView18);
+        mTextViewValue = findViewById(R.id.textViewValue);
         mMatrixLayout = findViewById(R.id.matrixLayout);
 
         // Rotation vector
@@ -105,7 +117,7 @@ public class MainActivity extends WearableActivity implements WearableNavigation
         mZ = findViewById(R.id.init_z);
 
         initEventListeners();
-        onItemSelected(0);
+        //onItemSelected(0);
 
         // Enables Always-on
         setAmbientEnabled();
@@ -134,6 +146,7 @@ public class MainActivity extends WearableActivity implements WearableNavigation
         mNavigationDrawer.setAdapter(new NavigationAdapter(this));
         mNavigationDrawer.getController().peekDrawer();
         mNavigationDrawer.addOnItemSelectedListener(this);
+
     }
 
     public void initEventListeners() {
@@ -223,6 +236,18 @@ public class MainActivity extends WearableActivity implements WearableNavigation
         mTextView16.setText(String.format("X: %s", String.format(Locale.getDefault(), "%.2f", mOrientationAngles[0])));
         mTextView17.setText(String.format("Y: %s", String.format(Locale.getDefault(), "%.2f", mOrientationAngles[1])));
         mTextView18.setText(String.format("Z: %s", String.format(Locale.getDefault(), "%.2f", mOrientationAngles[2])));
+
+        float val = ((0.5f + mOrientationAngles[1]) / 2f);
+        if (val > 1) val = 1;
+        else if (val < 0) val = 0;
+        DecimalFormat df = new DecimalFormat("#.##");
+        String value = df.format(val);
+        mTextViewValue.setText(value);
+        //new SendMessage("/value", df.format(val)).start();
+        if (!value.equals(oldval)) {
+            oldval = value;
+            new SendPacket(df.format(val)).start();
+        }
     }
 
     // Low pass filter method.
@@ -316,6 +341,62 @@ public class MainActivity extends WearableActivity implements WearableNavigation
             sensorManager.registerListener(gyroListener, gyro, SensorManager.SENSOR_DELAY_NORMAL);
         }
     }
+
+    class SendPacket extends Thread {
+        DatagramSocket socket;
+        String value;
+
+        SendPacket(String value) {
+            this.value = "Packet " + ++globalCounter + " value: " + value;
+            try {
+                this.socket = new DatagramSocket();
+            } catch (Exception e) {
+                System.out.println("Package not sent: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+
+        public void run() {
+            try {
+                byte[] buffer = this.value.getBytes();
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByName("bas.stfu-kthx.net"), 8899);
+                System.out.println("packet send: " + this.value);
+                //socket.setBroadcast(true);
+                socket.send(packet);
+            } catch (Exception e) {
+                System.out.println("Package not sent: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+    }
+/*
+    private static class Client extends AsyncTask<String, String, String> {
+        DatagramSocket clientSocket;
+        String address = "bas.stfu-kthx.net";
+        int port = 8899;
+        String value;
+
+        Client(String value) {
+            this.value = value;
+        }
+
+        @Override
+        protected String doInBackground(String... strings) {
+            try {
+                clientSocket = new DatagramSocket();
+                byte[] sendData = this.value.getBytes();
+                DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, InetAddress.getByName(address), port);
+                clientSocket.send(sendPacket);
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                if (clientSocket != null)
+                    clientSocket.close();
+            }
+            return address;
+        }
+    }
+*/
 
     class SendMessage extends Thread {
         String path;

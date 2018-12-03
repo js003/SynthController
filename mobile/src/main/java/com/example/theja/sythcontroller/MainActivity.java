@@ -20,6 +20,7 @@ import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.Wearable;
 
+import java.io.Console;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -28,6 +29,7 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView mTextView1;
     private TextView mTextView2;
+    private TextView mTextViewValue;
     private int receivedMessages = 0;
     private int sendMessages = 0;
 
@@ -38,6 +40,7 @@ public class MainActivity extends AppCompatActivity {
 
         mTextView1 = findViewById(R.id.textView1);
         mTextView2 = findViewById(R.id.textView2);
+        mTextViewValue = findViewById(R.id.textViewValue);
 
         IntentFilter messageFilter = new IntentFilter(Intent.ACTION_SEND);
         Receiver messageReceiver = new Receiver();
@@ -86,8 +89,15 @@ public class MainActivity extends AppCompatActivity {
     public class Receiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-            String message = "Received " + ++receivedMessages + " messages";
-            mTextView2.setText(message);
+            String path = intent.getStringExtra("path");
+            System.out.println(path);
+            if (path.equals("/my_path")) {
+                String message = "Received " + ++receivedMessages + " messages";
+                mTextView2.setText(message);
+            } else if (path.equals("/value")) {
+                String value = intent.getStringExtra("value");
+                mTextViewValue.setText(value);
+            }
         }
     }
 }
