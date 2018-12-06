@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.databinding.Bindable;
 import android.graphics.drawable.Drawable;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -17,6 +18,7 @@ import android.support.v4.content.LocalBroadcastManager;
 import android.support.wear.widget.drawer.WearableNavigationDrawerView;
 import android.support.wearable.activity.WearableActivity;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.TextView;
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
@@ -30,6 +32,8 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
 
 public class MainActivity extends WearableActivity implements WearableNavigationDrawerView.OnItemSelectedListener {
@@ -82,7 +86,8 @@ public class MainActivity extends WearableActivity implements WearableNavigation
     SensorEventListener magneticFieldListener;
     SensorEventListener gyroListener;
     SensorEventListener rotvecListener;
-    String oldval = "";
+    String oldvalY = "";
+    String oldvalZ = "";
 
     Integer globalCounter = 0;
 
@@ -121,6 +126,7 @@ public class MainActivity extends WearableActivity implements WearableNavigation
 
         // Enables Always-on
         setAmbientEnabled();
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         // Send Message Stuff
         t3 = findViewById(R.id.t3);
@@ -147,6 +153,16 @@ public class MainActivity extends WearableActivity implements WearableNavigation
         mNavigationDrawer.getController().peekDrawer();
         mNavigationDrawer.addOnItemSelectedListener(this);
 
+
+        TimerTask task = new TimerTask() {
+            @Override
+            public void run() {
+                updateOrientationAngles();
+            }
+        };
+
+        Timer timer = new Timer("Timer");
+        timer.scheduleAtFixedRate(task, 0, 10L);
     }
 
     public void initEventListeners() {
@@ -155,7 +171,7 @@ public class MainActivity extends WearableActivity implements WearableNavigation
             public void onSensorChanged(SensorEvent event) {
                 //System.arraycopy(event.values, 0, mAccelerometerReading,0, mAccelerometerReading.length);
                 mAccelerometerReading = lowPass(event.values.clone(), mAccelerometerReading);
-                updateOrientationAngles();
+                // updateOrientationAngles();
             }
 
             @Override
@@ -167,7 +183,8 @@ public class MainActivity extends WearableActivity implements WearableNavigation
             public void onSensorChanged(SensorEvent event) {
                 //System.arraycopy(event.values, 0, mMagnetometerReading,0, mMagnetometerReading.length);
                 mMagnetometerReading = lowPass(event.values.clone(), mMagnetometerReading);
-                updateOrientationAngles();
+                // updateOrientationAngles();
+                updateUI();
             }
 
             @Override
@@ -223,6 +240,7 @@ public class MainActivity extends WearableActivity implements WearableNavigation
     // Compute the three orientation angles based on the most recent readings from
     // the device's accelerometer and magnetometer.
     public void updateOrientationAngles() {
+        // System.out.println("Sensor values updated: " + System.currentTimeMillis());
         // Update rotation matrix, which is needed to update orientation angles.
         SensorManager.getRotationMatrix(mRotationMatrix, null, mAccelerometerReading, mMagnetometerReading);
         // "mRotationMatrix" now has up-to-date information.
@@ -230,24 +248,41 @@ public class MainActivity extends WearableActivity implements WearableNavigation
         SensorManager.getOrientation(mRotationMatrix, mOrientationAngles);
         // "mOrientationAngles" now has up-to-date information.
 
+        // mTextView13.setText(String.format("X: %s", String.format(Locale.getDefault(), "%.2f", mRotationMatrix[0])));
+        // mTextView14.setText(String.format("Y: %s", String.format(Locale.getDefault(), "%.2f", mRotationMatrix[1])));
+        // mTextView15.setText(String.format("Z: %s", String.format(Locale.getDefault(), "%.2f", mRotationMatrix[2])));
+        // mTextView16.setText(String.format("X: %s", String.format(Locale.getDefault(), "%.2f", mOrientationAngles[0])));
+        // mTextView17.setText(String.format("Y: %s", String.format(Locale.getDefault(), "%.2f", mOrientationAngles[1])));
+        // mTextView18.setText(String.format("Z: %s", String.format(Locale.getDefault(), "%.2f", mOrientationAngles[2])));
+
+        float valY = ((0.5f + mOrientationAngles[1]) / 2f);
+        float valZ = (mOrientationAngles[2] / 1.5f);
+
+        if (valZ < 0) valZ = 0;
+        if (valZ > 1) valZ = 1;
+
+        if (valY > 1) valY = 1;
+        else if (valY < 0) valY = 0;
+        DecimalFormat df = new DecimalFormat("#.##");
+        String valueY = df.format(valY);
+        String valueZ = df.format(valZ);
+        // mTextViewValue.setText(value);
+        //new SendMessage("/value", df.format(val)).start();
+        if (!valueY.equals(oldvalY) || !valueZ.equals(oldvalZ)) {
+            oldvalY = valueY;
+            oldvalZ = valueZ;
+            //new SendPacket(valueY + "," + valueZ).start();
+            new SendPacket(valueY).start();
+        }
+    }
+
+    public void updateUI() {
         mTextView13.setText(String.format("X: %s", String.format(Locale.getDefault(), "%.2f", mRotationMatrix[0])));
         mTextView14.setText(String.format("Y: %s", String.format(Locale.getDefault(), "%.2f", mRotationMatrix[1])));
         mTextView15.setText(String.format("Z: %s", String.format(Locale.getDefault(), "%.2f", mRotationMatrix[2])));
         mTextView16.setText(String.format("X: %s", String.format(Locale.getDefault(), "%.2f", mOrientationAngles[0])));
         mTextView17.setText(String.format("Y: %s", String.format(Locale.getDefault(), "%.2f", mOrientationAngles[1])));
         mTextView18.setText(String.format("Z: %s", String.format(Locale.getDefault(), "%.2f", mOrientationAngles[2])));
-
-        float val = ((0.5f + mOrientationAngles[1]) / 2f);
-        if (val > 1) val = 1;
-        else if (val < 0) val = 0;
-        DecimalFormat df = new DecimalFormat("#.##");
-        String value = df.format(val);
-        mTextViewValue.setText(value);
-        //new SendMessage("/value", df.format(val)).start();
-        if (!value.equals(oldval)) {
-            oldval = value;
-            new SendPacket(df.format(val)).start();
-        }
     }
 
     // Low pass filter method.
@@ -347,7 +382,8 @@ public class MainActivity extends WearableActivity implements WearableNavigation
         String value;
 
         SendPacket(String value) {
-            this.value = "Packet " + ++globalCounter + " value: " + value;
+            // this.value = "Packet " + ++globalCounter + " value: " + value;
+            this.value = value;
             try {
                 this.socket = new DatagramSocket();
             } catch (Exception e) {
@@ -359,7 +395,7 @@ public class MainActivity extends WearableActivity implements WearableNavigation
         public void run() {
             try {
                 byte[] buffer = this.value.getBytes();
-                DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByName("bas.stfu-kthx.net"), 8899);
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByName("192.168.43.169"), 8899);
                 System.out.println("packet send: " + this.value);
                 //socket.setBroadcast(true);
                 socket.send(packet);
