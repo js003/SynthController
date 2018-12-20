@@ -53,6 +53,13 @@ public class MainActivity extends AppCompatActivity {
         new NewThread("/my_path", message).start();
     }
 
+    public void sendIp(View target) {
+        TextView tvIP = findViewById(R.id.ip);
+        TextView tvPORT = findViewById(R.id.port);
+        String message = tvIP.getText() + ":" + tvPORT.getText();
+        new NewThread("/set_ip", message).start();
+    }
+
     class NewThread extends Thread {
         String path;
         String message;
@@ -71,17 +78,18 @@ public class MainActivity extends AppCompatActivity {
                     Task<Integer> sendMessageTask = Wearable.getMessageClient(MainActivity.this).sendMessage(node.getId(), path, message.getBytes());
                     // Send Message
                     try {
+                        System.out.println("MSG WILL BE SEND: " + path + " ::: " + message);
                         Integer result = Tasks.await(sendMessageTask);
                     } catch (ExecutionException e) {
-
+                        System.out.println(e);
                     } catch (InterruptedException e) {
-
+                        System.out.println(e);
                     }
                 }
             } catch (ExecutionException e) {
-
+                System.out.println(e);
             } catch (InterruptedException e) {
-
+                System.out.println(e);
             }
         }
     }

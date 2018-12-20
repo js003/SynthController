@@ -25,6 +25,8 @@ import com.google.android.gms.tasks.Tasks;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.Wearable;
 
+import org.w3c.dom.Text;
+
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -90,6 +92,10 @@ public class MainActivity extends WearableActivity implements WearableNavigation
     String oldvalZ = "";
 
     Integer globalCounter = 0;
+
+    // UDP Stuff
+    String mIp = "127.0.0.1";
+    int mPort = 8899;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -256,22 +262,22 @@ public class MainActivity extends WearableActivity implements WearableNavigation
         // mTextView18.setText(String.format("Z: %s", String.format(Locale.getDefault(), "%.2f", mOrientationAngles[2])));
 
         float valY = ((0.5f + mOrientationAngles[1]) / 2f);
-        float valZ = (mOrientationAngles[2] / 1.5f);
+        // float valZ = (mOrientationAngles[2] / 1.5f);
 
-        if (valZ < 0) valZ = 0;
-        if (valZ > 1) valZ = 1;
+        // if (valZ < 0) valZ = 0;
+        // if (valZ > 1) valZ = 1;
 
         if (valY > 1) valY = 1;
         else if (valY < 0) valY = 0;
         DecimalFormat df = new DecimalFormat("#.##");
         String valueY = df.format(valY);
-        String valueZ = df.format(valZ);
+        // String valueZ = df.format(valZ);
         // mTextViewValue.setText(value);
-        //new SendMessage("/value", df.format(val)).start();
-        if (!valueY.equals(oldvalY) || !valueZ.equals(oldvalZ)) {
+        // new SendMessage("/value", df.format(val)).start();
+        if (!valueY.equals(oldvalY) /*|| !valueZ.equals(oldvalZ)*/) {
             oldvalY = valueY;
-            oldvalZ = valueZ;
-            //new SendPacket(valueY + "," + valueZ).start();
+            // oldvalZ = valueZ;
+            // new SendPacket(valueY + "," + valueZ).start();
             new SendPacket(valueY).start();
         }
     }
@@ -395,8 +401,10 @@ public class MainActivity extends WearableActivity implements WearableNavigation
         public void run() {
             try {
                 byte[] buffer = this.value.getBytes();
-                DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByName("192.168.43.169"), 8899);
-                System.out.println("packet send: " + this.value);
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByName(mIp), mPort);
+                //DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByName("192.168.178.112"), 8899);
+                System.out.println("Send to " + mIp + ":" + mPort + ": " + this.value);
+                //DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByName("255.255.255.255"), 8899);
                 //socket.setBroadcast(true);
                 socket.send(packet);
             } catch (Exception e) {
@@ -468,8 +476,23 @@ public class MainActivity extends WearableActivity implements WearableNavigation
      public class Receiver extends BroadcastReceiver {
         @Override
          public void onReceive(Context context, Intent intent) {
-            String onMessageReceived = "Received " + ++receivedMessages + " messages";
-            t4.setText(onMessageReceived);
+            String path = intent.getStringExtra("path");
+            if (path.equals("/my_path")) {
+                String onMessageReceived = "Received " + ++receivedMessages + " messages";
+                t4.setText(onMessageReceived);
+            } else if (path.equals("/set_ip")) {
+                String ip = intent.getStringExtra("ip");
+                System.out.println("Set new ip to: " + ip);
+                String[] split = ip.split(":");
+                String ipaddr = split[0];
+                int port = Integer.parseInt(split[1]);
+
+                mIp = ipaddr;
+                mPort = port;
+
+                TextView textIP = findViewById(R.id.textViewIP);
+                textIP.setText(mIp + ":" + mPort);
+            }
         }
      }
 
