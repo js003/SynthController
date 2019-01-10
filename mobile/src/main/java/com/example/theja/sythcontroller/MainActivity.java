@@ -106,6 +106,8 @@ public class MainActivity extends AppCompatActivity {
         float valY = ((0.5f + mOrientationAngles[1]) / 2f);
         if (valY > 1) valY = 1;
         else if (valY < 0) valY = 0;
+
+        if (mOrientationAngles[0] > 0) valY = 1;
         DecimalFormat df = new DecimalFormat("#.##");
         String valueY = df.format(valY);
         if (!valueY.equals(oldvalY)) {
